@@ -27,24 +27,6 @@ const getTag = async(req, res) => {
     }
     res.json(output);
 }
-/********************************* GET TABLE History **************************************/
-
-const getHistory = async(req, res) => {
-    try {
-        const result = await pool.query(`SELECT id_history, id_visitor, contact, taguse_id, "date", time_start, time_stop, room
-        FROM diis.history order by date asc`);
-        output = {
-            status: "success",
-            result: result
-        }
-    } catch (error) {
-        output = {
-            status: "failed",
-            result: error
-        }
-    }
-    res.json(output);
-}
 
 /********************************* GET TABLE TAGUSE ***********************************/
 
@@ -104,7 +86,12 @@ const getLocation = async(req, res) => {
 
 const getVisitor = async(req, res) => {
     try {
-        const result = await pool.query(`SELECT visitor_id, first_name, last_name, tel, category,id_civiliz,contract FROM diis.visitor order by visitor_id asc `);
+        const result = await pool.query(`SELECT visitor_id, first_name, last_name, tel, category,id_civiliz,contract,time_start,time_stop,visitor.tag_address , tag_id
+        FROM diis.visitor
+        INNER join diis.tag 
+        ON tag.tag_address = visitor.tag_address 
+        order by time_stop desc
+        `);
         output = {
             status: "success",
             result: result
@@ -122,7 +109,57 @@ const getVisitor = async(req, res) => {
 
 const getScanlog = async(req, res) => {
     try {
-        const result = await pool.query(`select id,device_address , scanner_id , scan_timestamp , device_name  FROM diis.scanlog order by scan_timestamp desc ,device_name`);
+        const result = await pool.query(`select device_address , scanlog.scanner_id , scan_timestamp ,room
+        FROM diis.scanlog 
+        INNER join  diis.scanner 
+        ON scanlog.scanner_id = scanner.scanner_address 
+        INNER join  diis.location
+        ON  scanner.location_id = location.location_id 
+        order by scan_timestamp desc `);
+        output = {
+            status: "success",
+            result: result
+        }
+    } catch (error) {
+        output = {
+            status: "failed",
+            result: error
+        }
+    }
+    res.json(output);
+}
+
+
+/********************************* GET TABLE SELECT SCANLOG **********************************/
+
+const getSelectlog = async(req, res) => {
+    try {
+        console.log(req.query)
+        let device_address = "NULL";
+        let time_start = "NULL";
+        let time_stop = "NULL";
+            if (req.query.device_address != undefined) {
+                device_address = req.query.device_address;
+            }
+            if (req.query.time_start != undefined) {
+                time_start = req.query.time_start;
+            }
+            if (req.query.time_stop != "Invalid date") {
+                time_stop = req.query.time_stop;
+            }else{
+                time_stop = moment().locale('th').format()
+            }
+            const result = await pool.query(`select device_name ,device_address , scanlog.scanner_id , scan_timestamp ,room
+        FROM diis.scanlog 
+        INNER join  diis.scanner 
+        ON scanlog.scanner_id = scanner.scanner_address 
+        INNER join  diis.location
+        ON  scanner.location_id = location.location_id 
+        where scanlog.device_address = '${device_address}' and scan_timestamp >= '${time_start}' and scan_timestamp <= '${time_stop}'
+        order by scan_timestamp desc `);
+        
+        console.log(time_start)
+        console.log(time_stop)
         output = {
             status: "success",
             result: result
@@ -268,14 +305,21 @@ const createLocation = async(req, res) => {
 
 const createVisitor = async(req, res) => {
     try {
+        console.log("kansss")
+        console.log(req)
         for (let id in req.body) {
 
+            let tag_address = "NULL";
             let first_name = "NULL";
             let last_name = "NULL";
             let tel = "NULL";
             let category = "NULL";
             let id_civiliz = "NULL";
             let contract = "NULL";
+
+            if (req.body[id].tag_address != undefined) {
+                tag_address = req.body[id].tag_address;
+            }
             if (req.body[id].first_name != undefined) {
                 first_name = req.body[id].first_name;
             }
@@ -294,7 +338,10 @@ const createVisitor = async(req, res) => {
             if (req.body[id].contract != undefined) {
                 contract = req.body[id].contract;
             }
-            const sql = `INSERT INTO diis.visitor (first_name, last_name, tel, category,id_civiliz,contract) VALUES('${first_name}', '${last_name}', '${tel}', '${category}', '${id_civiliz}', '${contract}')`
+            const time = moment().locale('th').format();
+            // const sql = `INSERT INTO diis.visitor (tag_address,first_name, last_name, tel, category,id_civiliz,contract,time_start) VALUES(${tag_address}','${first_name}', '${last_name}', '${tel}', '${category}', '${id_civiliz}', '${contract}','${time}')`
+            const sql = `INSERT INTO diis.visitor(first_name, last_name, tel, category, id_civiliz, contract, time_start, tag_address) VALUES( '${first_name}', '${last_name}', '${tel}', '${category}', '${id_civiliz}', '${contract}', '${time}', '${tag_address}');`
+            
             await pool.query(sql)
         }
         output = {
@@ -368,6 +415,7 @@ const createScanlog = async(req, res) => {
         };
     }
     res.json(output);
+    console.warn(this.sql)
 }
 
 /***************************************************** UPDATE API ALL TABLE *******************************************************/
@@ -398,7 +446,7 @@ const updateTag = async(req, res) => {
 const updateTaguse = async(req, res) => {
     try {
         // const result = await pool.query(`UPDATE diis.taguse SET taguse_id=${req.body.taguse_id}('diis.taguse_taguse_id_seq'::regclass), tag_address='${req.body.tag_address}', time_start='${req.body.time_start}', time_stop='${req.body.time_stop}', visitor_id=${req.body.visitor_id} where taguse_id = ${req.params.taguse_id}`);
-        console.log(req.body.visitor_id);
+        // console.log(req.body.visitor_id);
         const result = await pool.query(`UPDATE diis.taguse SET time_stop='${req.body.time_stop}' where taguse_id = '${req.params.id}'`);
         
         output = {
@@ -459,8 +507,8 @@ const updateScanner = async(req, res) => {
 
 const updateVisitor = async(req, res) => {
     try {
-        const result = await pool.query(`UPDATE diis.visitor
-            SET visitor_id=${req.body.visitor_id}('diis.visitor_visitor_id_seq'::regclass), first_name='${req.body.first_name}', last_name='${req.body.last_name}', tel='${req.body.tel}', category='${req.body.category} where visitor_id = ${req.params.visitor_id} '`);
+
+        const result = await pool.query(`UPDATE diis.visitor SET time_stop='${req.body.time_stop}'  where visitor_id = ${req.params.id}`);
         output = {
             status: "success",
             result: result
@@ -678,5 +726,5 @@ module.exports = {
     deleteScanlog,
     getData,
     getData2,
-    getHistory
+    getSelectlog
 }

@@ -9,8 +9,6 @@ router.post('/tags', db.createTag);
 router.put('/tags/:id', db.updateTag);
 router.delete('/tags/:id', db.deleteTag);
 
-router.get('/history', db.getHistory);
-
 router.get('/taguse', db.getTaguse);
 router.post('/taguse', db.createTaguse);
 router.put('/taguse/:id', db.updateTaguse);
@@ -32,9 +30,9 @@ router.put('/visitors/:id', db.updateVisitor);
 router.delete('/visitors/:id', db.deleteVisitor);
 router.post('/visitors', db.createVisitor);
 
-// router.get('/history', db.getHistory);
 
 router.get('/scanlog', db.getScanlog);
+router.get('/selectlog', db.getSelectlog);
 router.post('/scanlog', db.createScanlog);
 router.put('/scanlog/:id', db.updateScanlog);
 router.delete('/scanlog/:id', db.deleteScanlog);
